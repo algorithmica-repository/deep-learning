@@ -1,0 +1,13 @@
+conda create -n tensorflow python=2.7
+    6  spyder
+    7  which spyder
+    8  conda install spyder
+    9  source activate tensorflow
+   10  conda install -c conda-forge tensorflow
+   11  conda install notebook ipykernel
+   12  jupyter notebook
+   13  spyder
+   14  conda install spyder
+
+pip install --ignore-installed --upgrade \
+https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.0.0-cp27-none-linux_x86_64.whl
