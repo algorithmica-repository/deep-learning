@@ -3,88 +3,118 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Dropout, Flatten, Dense
 from keras import applications
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+import utils
+import pandas as pd
+import os
+from keras.utils import np_utils
+
 
 img_width, img_height = 150, 150
-nb_train_samples = 2000
-nb_validation_samples = 1000
-nb_test_samples = 12500
-epochs = 30
+epochs = 50
 batch_size = 20
 
-def save_bottlebeck_features(train_dir, validation_dir, test_dir):
-    datagen = ImageDataGenerator(rescale=1. / 255)
+def save_bottlebeck_features(model, train_dir, validation_dir, test_dir, bottleneck_dir):
+    if not os.path.exists(bottleneck_dir):
+        os.mkdir(bottleneck_dir) 
+         
+        datagen = ImageDataGenerator(rescale=1. / 255)
 
-    # build the VGG16 network
-    model = applications.VGG16(include_top=False, weights='imagenet')
-
-    train_generator = datagen.flow_from_directory(
-         train_dir,
-         target_size=(img_width, img_height),
-         batch_size=batch_size,
-         class_mode=None,
-         shuffle=False)
-    bottleneck_features_train = model.predict_generator(
-         train_generator, nb_train_samples // batch_size)
-    np.save(open('bottleneck_features_train.npy', 'wb'),
-             bottleneck_features_train)
+        train_generator = datagen.flow_from_directory(
+                 train_dir,
+                 target_size=(img_width, img_height),
+                 batch_size=batch_size,
+                 class_mode=None,
+                 shuffle=False)
+        bottleneck_features_train = model.predict_generator(
+               train_generator, nb_train_samples // batch_size)
+        np.save(open('bottleneck_features_train.npy', 'wb'),
+               bottleneck_features_train)
  
-    validation_generator = datagen.flow_from_directory(
-         validation_dir,
-         target_size=(img_width, img_height),
-         batch_size=batch_size,
-         class_mode=None,
-         shuffle=False)
-    bottleneck_features_validation = model.predict_generator(
-         validation_generator, nb_validation_samples // batch_size)
-    np.save(open('bottleneck_features_validation.npy', 'wb'),
-             bottleneck_features_validation)
+        validation_generator = datagen.flow_from_directory(
+                validation_dir,
+                target_size=(img_width, img_height),
+                batch_size=batch_size,
+                class_mode=None,
+                shuffle=False)
+        bottleneck_features_validation = model.predict_generator(
+                validation_generator, nb_validation_samples // batch_size)
+        np.save(open('bottleneck_features_validation.npy', 'wb'),
+                bottleneck_features_validation)
     
-    test_generator = datagen.flow_from_directory(
-        test_dir,
-        target_size=(img_width, img_height),
-        batch_size=batch_size,
-        class_mode=None,
-        shuffle=False)
-    bottleneck_features_test = model.predict_generator(
-        test_generator, nb_test_samples // batch_size)
-    np.save(open('bottleneck_features_test.npy', 'wb'),
-            bottleneck_features_test)
+        test_generator = datagen.flow_from_directory(
+                test_dir,
+                target_size=(img_width, img_height),
+                batch_size=batch_size,
+                class_mode=None,
+                shuffle=False)
+        bottleneck_features_test = model.predict_generator(
+                test_generator, nb_test_samples // batch_size)
+        np.save(open('bottleneck_features_test.npy', 'wb'), bottleneck_features_test)
+    else:
+        print('bottleneck directory already exists')
+    
+    
+train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples,nb_test_samples = \
+                    utils.preapare_small_dataset_for_flow(
+                            train_dir_original='C:\\Users\\data\\train', 
+                            test_dir_original='C:\\Users\\data\\test',
+                            target_base_dir='C:\\Users\\Thimma Reddy\\data1')
 
+model = applications.VGG16(include_top=False, weights='imagenet')
 
-save_bottlebeck_features(train_dir, validation_dir, test_dir)
+bottleneck_dir = 'C:\\Users\\Thimma Reddy\\bottleneck_features'
+save_bottlebeck_features(model, train_dir, validation_dir, test_dir, bottleneck_dir)
 
-train_data = np.load(open('bottleneck_features_train.npy','rb'))
+os.chdir(bottleneck_dir)
+
+X_train = np.load(open('bottleneck_features_train.npy','rb'))
 train_labels = np.array( 
         [0] * (nb_train_samples // 2) + [1] * (nb_train_samples // 2))
+y_train = np_utils.to_categorical(train_labels)
 
-validation_data = np.load(open('bottleneck_features_validation.npy','rb'))
+
+X_validation = np.load(open('bottleneck_features_validation.npy','rb'))
 validation_labels = np.array(
         [0] * (nb_validation_samples // 2) + [1] * (nb_validation_samples // 2))
+y_validation = np_utils.to_categorical(validation_labels)
 
 model = Sequential()
-model.add(Flatten(input_shape=train_data.shape[1:]))
+model.add(Flatten(input_shape=X_train.shape[1:]))
 model.add(Dense(256, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(256, activation='relu'))
-model.add(Dropout(0.2))
-model.add(Dense(1, activation='sigmoid'))
+model.add(Dropout(0.5))
+model.add(Dense(2, activation='softmax'))
 
-model.compile(optimizer='rmsprop',
+model.compile(optimizer='adam',
                   loss='binary_crossentropy', metrics=['accuracy'])
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=2, verbose=1, mode='auto')   
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='auto')   
 save_weights = ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True)
 
-history = model.fit(train_data, train_labels,
+history = model.fit(X_train, y_train,
               epochs=epochs,
               batch_size=batch_size,
-              validation_data=(validation_data, validation_labels),
+              validation_data=(X_validation, y_validation),
               callbacks=[save_weights, early_stopping])
 
 utils.plot_loss_accuracy(history)
 
 test_data = np.load(open('bottleneck_features_test.npy','rb'))
-pred = model.predict_proba(test_data)
-submissions=pd.DataFrame({"id": list(range(1,test_data.shape[0])),
-                         "label": pred[:,0]})
-submissions.to_csv("submission.csv", index=False)
+probabilities = model.predict_proba(test_data)
+
+test_generator = ImageDataGenerator(rescale=1. / 255).flow_from_directory(
+            test_dir,
+            target_size=(img_width, img_height),
+            batch_size=batch_size,
+            class_mode=None,
+            shuffle=False)
+mapper = {}
+i = 0
+for file in test_generator.filenames:
+    id = int(file.split('\\')[1].split('.')[0])
+    mapper[id] = round(probabilities[i][1],3)
+    i += 1   
+tmp = pd.DataFrame({'id':list(mapper.keys()),'label':list(mapper.values())})    
+tmp.to_csv('submission.csv', columns=['id','label'], index=False)
