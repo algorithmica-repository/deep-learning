@@ -1,44 +1,53 @@
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dropout, Flatten, Dense
 from keras import backend as K
-import collections
-import os
 import pandas as pd
 import utils
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.applications import VGG16
+
 
 os.getcwd()
 train_dir, validation_dir, test_dir = utils.prepare_data_flow_directory(
-                            train_dir_original='D:\\train\\train', 
-                            test_dir_original='D:\\test\\test',
-                            target_base_dir='D:\\data')
+                            train_dir_original='C:\\Users\\data\\train', 
+                            test_dir_original='C:\\Users\\data\\test',
+                            target_base_dir='C:\\Users\\Thimma Reddy\\data1')
 
 img_width, img_height = 150, 150
 nb_train_samples = 2000
 nb_validation_samples = 1000
 nb_test_samples = 12500
-epochs = 30
-batch_size = 20
+epochs = 2
+batch_size = 32
 
 if K.image_data_format() == 'channels_first':
     input_shape = (3, img_width, img_height)
 else:
     input_shape = (img_width, img_height, 3)
     
-model = Sequential()
-model.add(Conv2D(32, (3, 3), activation='relu',input_shape=input_shape))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(64, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(128, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(128, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Flatten())
-model.add(Dropout(0.5))
-model.add(Dense(512, activation='relu'))
-model.add(Dense(1, activation='sigmoid'))
+    
+    
+model = VGG16(weights='imagenet',
+                  include_top=False,
+                  input_shape=(150, 150, 3))
+# build a classifier model to put on top of the convolutional model
+top_model = Sequential()
+top_model.add(Flatten(input_shape=model.output_shape[1:]))
+top_model.add(Dense(256, activation='relu'))
+top_model.add(Dropout(0.5))
+top_model.add(Dense(1, activation='sigmoid'))
+
+# add the model on top of the convolutional base
+model.add(top_model)
+
+#model.trainable = True
+for layer in model.layers:
+    if layer.name == 'block5_conv1':
+        layer.trainable = True
+    else:
+        layer.trainable = False
+    
 print(model.summary())
 
 
@@ -47,7 +56,15 @@ model.compile(loss='binary_crossentropy',
               metrics=['accuracy'])
 
 
-train_datagen = ImageDataGenerator(rescale=1./255)
+train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest')
 
 validation_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -63,14 +80,16 @@ validation_generator = validation_datagen.flow_from_directory(
     batch_size=batch_size,
     class_mode='binary')
 
+early_stopping = EarlyStopping(monitor='val_loss', patience=2, verbose=1, mode='auto')   
+save_weights = ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True)
+
 history = model.fit_generator(
     train_generator,
     steps_per_epoch=nb_train_samples//batch_size,
     epochs=epochs,
     validation_data=validation_generator,
-    validation_steps=nb_validation_samples//batch_size)
-
-model.save('cats_and_dogs_small_1.h5')
+    validation_steps=nb_validation_samples//batch_size,
+    callbacks=[save_weights, early_stopping])
 
 historydf = pd.DataFrame(history.history, index=history.epoch)
 

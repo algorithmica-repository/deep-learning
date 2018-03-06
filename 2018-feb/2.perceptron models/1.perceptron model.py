@@ -4,6 +4,7 @@ from keras.layers import Dense
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import utils
 
 X, y = make_classification(n_samples=1000, n_features=2, n_redundant=0, \
                            n_informative=2, random_state=0, n_clusters_per_class=1)

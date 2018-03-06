@@ -1,17 +1,13 @@
-#dropout and data-augmentation to reduce overfitting
-
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dropout, Flatten, Dense
 from keras import backend as K
+import collections
 import os
 import pandas as pd
 import utils
 from keras.callbacks import ModelCheckpoint, EarlyStopping
-
-
-os.getcwd()
 train_dir, validation_dir, test_dir = utils.prepare_data_flow_directory(
                             train_dir_original='C:\\Users\\data\\train', 
                             test_dir_original='C:\\Users\\data\\test',
@@ -21,8 +17,8 @@ img_width, img_height = 150, 150
 nb_train_samples = 2000
 nb_validation_samples = 1000
 nb_test_samples = 12500
-epochs = 2
-batch_size = 32
+epochs = 30
+batch_size = 20
 
 if K.image_data_format() == 'channels_first':
     input_shape = (3, img_width, img_height)
@@ -50,15 +46,7 @@ model.compile(loss='binary_crossentropy',
               metrics=['accuracy'])
 
 
-train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        rotation_range=40,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        fill_mode='nearest')
+train_datagen = ImageDataGenerator(rescale=1./255)
 
 validation_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -85,6 +73,7 @@ history = model.fit_generator(
     validation_steps=nb_validation_samples//batch_size,
     callbacks=[save_weights, early_stopping])
 
+
 historydf = pd.DataFrame(history.history, index=history.epoch)
 
 utils.plot_loss_accuracy(history)
@@ -106,5 +95,7 @@ for file in test_generator.filenames:
     id = int(file.split('\\')[1].split('.')[0])
     mapper[id] = probabilities[i][0]
     i += 1
-tmp = pd.DataFrame({'id':list(mapper.keys()),'label':list(mapper.values())})
+od = collections.OrderedDict(sorted(mapper.items()))    
+tmp = pd.DataFrame({'id':list(od.keys()),'label':list(od.values())})
+    
 tmp.to_csv('submission.csv', columns=['id','label'],index=False)

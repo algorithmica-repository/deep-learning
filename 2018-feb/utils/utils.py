@@ -1,65 +1,110 @@
 import os
 import shutil
 import matplotlib.pyplot as plt
+import random
 
-def copy_images(fnames, src, target):
-    for fname in fnames:
-        shutil.copyfile(os.path.join(src, fname), os.path.join(target, fname))
-
-def prepare_data_flow_directory(train_dir_original, test_dir_original, target_base_dir):
-    os.mkdir(target_base_dir)
-
-    # Directories for our training, validation and test split
+def preapare_full_dataset_for_flow(train_dir_original, test_dir_original, target_base_dir, val_percent=0.2):
     train_dir = os.path.join(target_base_dir, 'train')
-    os.mkdir(train_dir)
-    # Directory with our training cat pictures
-    train_cats_dir = os.path.join(train_dir, 'cats')
-    os.mkdir(train_cats_dir)
-    # Directory with our training dog pictures
-    train_dogs_dir = os.path.join(train_dir, 'dogs')
-    os.mkdir(train_dogs_dir)
-
     validation_dir = os.path.join(target_base_dir, 'validation')
-    os.mkdir(validation_dir)
-    # Directory with our validation cat pictures
-    validation_cats_dir = os.path.join(validation_dir, 'cats')
-    os.mkdir(validation_cats_dir)
-    # Directory with our validation dog pictures
-    validation_dogs_dir = os.path.join(validation_dir, 'dogs')
-    os.mkdir(validation_dogs_dir)
-
     test_dir = os.path.join(target_base_dir, 'test')
-    os.mkdir(test_dir)
-    # Directory with our test pictures
-    test_images_dir = os.path.join(test_dir, 'images')
-    os.mkdir(test_images_dir)    
+
+    if not os.path.exists(target_base_dir):          
+        os.mkdir(target_base_dir)
+        os.mkdir(train_dir)
+        os.mkdir(validation_dir)
+        os.mkdir(test_dir)
+        for c in ['dogs', 'cats']: 
+            os.mkdir(os.path.join(train_dir, c))
+            os.mkdir(os.path.join(validation_dir, c))
+        os.mkdir(os.path.join(test_dir, 'images'))
+        print('created the required directory structure')
         
-    # Copy first 1000 cat images to train_cats_dir
-    fnames = ['cat.{}.jpg'.format(i) for i in range(1000)]
-    copy_images(fnames, train_dir_original, train_cats_dir)
-    # Copy first 1000 dog images to train_dogs_dir
-    fnames = ['dog.{}.jpg'.format(i) for i in range(1000)]
-    copy_images(fnames, train_dir_original, train_dogs_dir)
- 
-    # Copy next 500 cat images to validation_cats_dir
-    fnames = ['cat.{}.jpg'.format(i) for i in range(1000, 1500)]
-    copy_images(fnames, train_dir_original, validation_cats_dir)
-    # Copy next 500 dog images to validation_dogs_dir
-    fnames = ['dog.{}.jpg'.format(i) for i in range(1000, 1500)]
-    copy_images(fnames, train_dir_original, validation_dogs_dir)
+        files = os.listdir(train_dir_original)
+        train_files = [os.path.join(train_dir_original, f) for f in files]
+        random.shuffle(train_files)    
+        n = int(len(train_files) * val_percent)
+        val = train_files[:n]
+        train = train_files[n:]  
 
-    # Copy all images to test__dir
-    fnames = ['{}.jpg'.format(i) for i in range(1, 12501)]
-    copy_images(fnames, test_dir_original, test_images_dir)
+        for t in train:
+            if 'cat' in t:
+                shutil.copy2(t, os.path.join(train_dir, 'cats'))
+            else:
+                shutil.copy2(t, os.path.join(train_dir, 'dogs'))
+     
+        for v in val:
+            if 'cat' in v:
+                shutil.copy2(v, os.path.join(validation_dir, 'cats'))
+            else:
+                shutil.copy2(v, os.path.join(validation_dir, 'dogs'))
+        files = os.listdir(test_dir_original)
+        test_files = [os.path.join(test_dir_original, f) for f in files]
+        for t in test_files:
+            shutil.copy2(t, os.path.join(test_dir, 'images'))
+    else:
+        print('required directory structure already exists. learning continues with existing data')
 
-    print('total training cat images:', len(os.listdir(train_cats_dir)))
-    print('total training dog images:', len(os.listdir(train_dogs_dir)))
-    print('total validation cat images:', len(os.listdir(validation_cats_dir)))
-    print('total validation dog images:', len(os.listdir(validation_dogs_dir)))
-    print('total test images:', len(os.listdir(test_images_dir)))
+    nb_train_samples = 0  
+    nb_validation_samples = 0
+    for c in ['dogs', 'cats']:
+        nb_train_samples = nb_train_samples + len(os.listdir(os.path.join(train_dir, c)))
+    print('total training images:', nb_train_samples)
+    for c in ['dogs', 'cats']:
+        nb_validation_samples = nb_validation_samples + len(os.listdir(os.path.join(validation_dir, c)))
+    print('total validation images:', nb_validation_samples)
+    nb_test_samples = len(os.listdir(os.path.join(test_dir, 'images')))
+    print('total test images:', nb_test_samples )
     
-    return train_dir, validation_dir, test_dir
+    return train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples, nb_test_samples
 
+def preapare_small_dataset_for_flow(train_dir_original, test_dir_original, target_base_dir):
+    train_dir = os.path.join(target_base_dir, 'train')
+    validation_dir = os.path.join(target_base_dir, 'validation')
+    test_dir = os.path.join(target_base_dir, 'test')
+
+    if not os.path.exists(target_base_dir):          
+        os.mkdir(target_base_dir)
+        os.mkdir(train_dir)
+        os.mkdir(validation_dir)
+        os.mkdir(test_dir)
+        for c in ['dogs', 'cats']: 
+            os.mkdir(os.path.join(train_dir, c))
+            os.mkdir(os.path.join(validation_dir, c))
+        os.mkdir(os.path.join(test_dir, 'images'))
+        print('created the required directory structure')        
+       
+        train_cats = ['cat.{}.jpg'.format(i) for i in range(1000)]
+        for t in train_cats:
+             shutil.copy2(os.path.join(train_dir_original, t), os.path.join(train_dir, 'cats'))
+        train_dogs = ['dog.{}.jpg'.format(i) for i in range(1000)]
+        for t in train_dogs:
+             shutil.copy2(os.path.join(train_dir_original, t), os.path.join(train_dir, 'dogs'))        
+        val_cats = ['cat.{}.jpg'.format(i) for i in range(1000, 1500)]
+        for t in val_cats:
+             shutil.copy2(os.path.join(train_dir_original, t), os.path.join(validation_dir, 'cats'))
+        val_dogs = ['dog.{}.jpg'.format(i) for i in range(1000, 1500)]
+        for t in val_dogs:
+             shutil.copy2(os.path.join(train_dir_original, t), os.path.join(validation_dir, 'dogs'))
+
+        files = os.listdir(test_dir_original)           
+        test_files = [os.path.join(test_dir_original, f) for f in files]
+        for t in test_files:
+            shutil.copy2(t, os.path.join(test_dir, 'images'))
+    else:
+        print('required directory structure already exists. learning continues with existing data')
+    
+    nb_train_samples = 0  
+    nb_validation_samples = 0
+    for c in ['dogs', 'cats']:
+        nb_train_samples = nb_train_samples + len(os.listdir(os.path.join(train_dir, c)))
+    print('total training images:', nb_train_samples)
+    for c in ['dogs', 'cats']:
+        nb_validation_samples = nb_validation_samples + len(os.listdir(os.path.join(validation_dir, c)))
+    print('total validation images:', nb_validation_samples)
+    nb_test_samples = len(os.listdir(os.path.join(test_dir, 'images')))
+    print('total test images:', nb_test_samples )
+
+    return train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples, nb_test_samples
 def plot_loss_accuracy(history):
     acc = history.history['acc']
     val_acc = history.history['val_acc']
@@ -78,16 +123,3 @@ def plot_loss_accuracy(history):
     plt.legend()
 
     plt.show()
-
-
-def plot_data(X, y, figsize=None):
-    if not figsize:
-        figsize = (8, 6)
-    plt.figure(figsize=figsize)
-    plt.plot(X[y==0, 0], X[y==0, 1], 'or', alpha=0.5, label=0)
-    plt.plot(X[y==1, 0], X[y==1, 1], 'ob', alpha=0.5, label=1)
-    plt.xlim((min(X[:, 0])-0.1, max(X[:, 0])+0.1))
-    plt.ylim((min(X[:, 1])-0.1, max(X[:, 1])+0.1))
-    plt.legend()
-
-

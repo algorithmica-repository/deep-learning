@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from keras.utils import np_utils
 import os
+import utils
 
 os.chdir("E:/")
 np.random.seed(100)
@@ -25,3 +26,6 @@ epochs = 100
 batchsize = 16
 history = model.fit(x=X_train, y=y_train, verbose=2, epochs=epochs, batch_size=batchsize, validation_split=0.2)
 print(model.get_weights())
+
+utils.plot_loss_accuracy(history)
+
