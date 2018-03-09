@@ -9,16 +9,15 @@ import pandas as pd
 import os
 from keras.utils import np_utils
 
-
 img_width, img_height = 150, 150
 epochs = 50
 batch_size = 20
 
-def save_bottlebeck_features(model, train_dir, validation_dir, test_dir, bottleneck_dir):
+def save_bottlebeck_features(model, preprocess_fn, train_dir, validation_dir, test_dir, bottleneck_dir):
     if not os.path.exists(bottleneck_dir):
         os.mkdir(bottleneck_dir) 
-         
-        datagen = ImageDataGenerator(rescale=1. / 255)
+        os.chdir(bottleneck_dir) 
+        datagen = ImageDataGenerator(rescale=1. / 255, preprocessing_function=preprocess_fn)
 
         train_generator = datagen.flow_from_directory(
                  train_dir,
@@ -61,12 +60,12 @@ train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples,nb_
                             test_dir_original='C:\\Users\\data\\test',
                             target_base_dir='C:\\Users\\Thimma Reddy\\data1')
 
-model = applications.VGG16(include_top=False, weights='imagenet')
+model = applications.VGG16(include_top=False, weights='imagenet', 
+                           input_shape=(img_width, img_height, 3))
 
 bottleneck_dir = 'C:\\Users\\Thimma Reddy\\bottleneck_features'
-save_bottlebeck_features(model, train_dir, validation_dir, test_dir, bottleneck_dir)
-
-os.chdir(bottleneck_dir)
+preprocess = applications.vgg16.preprocess_input
+save_bottlebeck_features(model, preprocess, train_dir, validation_dir, test_dir, bottleneck_dir)
 
 X_train = np.load(open('bottleneck_features_train.npy','rb'))
 train_labels = np.array( 
@@ -81,17 +80,17 @@ y_validation = np_utils.to_categorical(validation_labels)
 
 model = Sequential()
 model.add(Flatten(input_shape=X_train.shape[1:]))
-model.add(Dense(256, activation='relu'))
+model.add(Dense(512, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(256, activation='relu'))
-model.add(Dropout(0.5))
+model.add(Dropout(0.2))
 model.add(Dense(2, activation='softmax'))
 
 model.compile(optimizer='adam',
                   loss='binary_crossentropy', metrics=['accuracy'])
 
 early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='auto')   
-save_weights = ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True)
+save_weights = ModelCheckpoint('bottlenck_model.h5', monitor='val_loss', save_best_only=True)
 
 history = model.fit(X_train, y_train,
               epochs=epochs,
