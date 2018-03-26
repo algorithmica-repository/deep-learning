@@ -9,10 +9,11 @@ from keras import backend as K
 import os
 import pandas as pd
 import utils
+import cats_dogs_data_preparation as prep
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples,nb_test_samples = \
-                    utils.preapare_small_dataset_for_flow(
+                    prep.preapare_small_dataset_for_flow(
                             train_dir_original='C:\\Users\\data\\train', 
                             test_dir_original='C:\\Users\\data\\test',
                             target_base_dir='C:\\Users\\Thimma Reddy\\data1')

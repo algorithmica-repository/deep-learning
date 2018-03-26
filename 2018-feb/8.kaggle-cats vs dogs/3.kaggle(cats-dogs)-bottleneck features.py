@@ -5,6 +5,7 @@ from keras.layers import Dropout, Flatten, Dense
 from keras import applications
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 import utils
+import cats_dogs_data_preparation as prep
 import pandas as pd
 import os
 from keras.utils import np_utils
@@ -55,7 +56,7 @@ def save_bottlebeck_features(model, preprocess_fn, train_dir, validation_dir, te
     
     
 train_dir, validation_dir, test_dir, nb_train_samples, nb_validation_samples,nb_test_samples = \
-                    utils.preapare_small_dataset_for_flow(
+                    prep.preapare_small_dataset_for_flow(
                             train_dir_original='C:\\Users\\data\\train', 
                             test_dir_original='C:\\Users\\data\\test',
                             target_base_dir='C:\\Users\\Thimma Reddy\\data1')
