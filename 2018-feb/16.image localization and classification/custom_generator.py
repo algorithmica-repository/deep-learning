@@ -96,6 +96,8 @@ class DirectoryIterator(image.Iterator):
                  batch_size=32, shuffle=True, seed=None):
         self.directory = directory
         self.target_size = tuple(target_size)
+        self.bbox_directory = bbox_directory
+
         if color_mode not in {'rgb', 'grayscale'}:
             raise ValueError('Invalid color mode:', color_mode,
                              '; expected "rgb" or "grayscale".')
@@ -162,7 +164,6 @@ class DirectoryIterator(image.Iterator):
                     self.filenames.append(os.path.join(subdir, fname))
                     i += 1
         if bbox_directory:
-          self.bbox_directory = bbox_directory
           all_sizes = {f.split('\\')[-1]: Image.open(os.path.join(directory,f)).size for f in self.filenames}
           self.null_largest = {'width':0, 'height': 0, 'x': 224/2., 'y': 224/2.}
           self.file2boxes = {}
