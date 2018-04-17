@@ -74,29 +74,15 @@ def list_pictures(directory, ext='jpg|jpeg|bmp|png'):
     return [os.path.join(directory, f) for f in sorted(os.listdir(directory))
             if os.path.isfile(os.path.join(directory, f)) and re.match('([\w]+\.(?:' + ext + '))', f)]
 
-'''
-    mappable_extras must be a list of lists. (numpy) Where each sub-list's data will be output as a namedtuple.
-'''
 class DirectoryIterator(image.Iterator):
     
-    def convert_bb(self, item, from_size):
-        desired_size = self.target_size
-        conv_x = (float(desired_size[0]) / float(from_size[0]))
-        conv_y = (float(desired_size[1]) / float(from_size[1]))
-        item['height'] = item['height']*conv_y
-        item['width'] = item['width']*conv_x
-        item['x'] = max(item['x']*conv_x, 0)
-        item['y'] = max(item['y']*conv_y, 0)
-        return item
-
-    def __init__(self, directory, bbox_directory=None,
-                 target_size=(224, 224), color_mode='rgb',
+    def __init__(self, directory, target_size=(224, 224), color_mode='rgb',
                  dim_ordering='tf',
                  classes=None, class_mode='categorical',
-                 batch_size=32, shuffle=True, seed=None):
+                 batch_size=32, shuffle=True, seed=None, map_extras=None):
         self.directory = directory
         self.target_size = tuple(target_size)
-        self.bbox_directory = bbox_directory
+        self.map_extras = map_extras
 
         if color_mode not in {'rgb', 'grayscale'}:
             raise ValueError('Invalid color mode:', color_mode,
@@ -163,38 +149,18 @@ class DirectoryIterator(image.Iterator):
                     self.classes[i] = self.class_indices[subdir]
                     self.filenames.append(os.path.join(subdir, fname))
                     i += 1
-        if bbox_directory:
-          all_sizes = {f.split('\\')[-1]: Image.open(os.path.join(directory,f)).size for f in self.filenames}
-          self.null_largest = {'width':0, 'height': 0, 'x': 224/2., 'y': 224/2.}
-          self.file2boxes = {}
-          
-          boxes = os.listdir(bbox_directory)
-          for b in boxes:
-              fp = open(os.path.join(bbox_directory, b)) 
-              bxs = json.load(fp)
-              desired_size = self.target_size
-              for item in bxs:            
-                  fname = item['filename'].split('/')[-1]
-                  if len(item['annotations'])>0:
-                      item['annotations'] = [self.convert_bb(a, all_sizes[fname]) for a in item['annotations']]
-                      largest = sorted(item['annotations'], key=lambda x: x['height']*x['width'])[-1]
-                      #largest =  item['annotations'].sort(key=lambda x: x['width']*x['height'])[-1]
-                  else:
-                      largest = self.null_largest
-                  self.file2boxes[fname] = [largest['width'], largest['height'], largest['x'], largest['y']]
-
         super(DirectoryIterator, self).__init__(self.nb_sample, batch_size, shuffle, seed)
     
 
     
     def _get_batches_of_transformed_samples(self, index_array):
-        print(index_array)
+        #print(index_array)
         labels = []
         batch_x = np.zeros((len(index_array),) + self.image_shape, dtype='float32')
 
         grayscale = self.color_mode == 'grayscale'
         
-        if self.bbox_directory:
+        if self.map_extras:
             boxes = np.zeros((len(batch_x), 4), dtype='float32')
         for i, j in enumerate(index_array):
             fname = self.filenames[j]
@@ -202,15 +168,8 @@ class DirectoryIterator(image.Iterator):
             x = img_to_array(img, dim_ordering=self.dim_ordering)
             batch_x[i] = x
     
-            if self.bbox_directory:
-                null_largest = self.null_largest
-                nlarge =  [null_largest['width'], null_largest['height'], null_largest['x'], null_largest['y']]
-                f = fname.split('\\')[-1]
-                meta = self.file2boxes.get(f)
-                if meta == None:
-                    boxes[i] = nlarge
-                else:
-                    boxes[i] = meta
+            if self.map_extras:
+                boxes[i] = self.map_extras.get(fname.split('\\')[-1])
        
         if self.class_mode == 'sparse':
             batch_y = self.classes[index_array]
@@ -222,7 +181,11 @@ class DirectoryIterator(image.Iterator):
                 batch_y[i, label] = 1.
         else:
             return batch_x
-        return batch_x, np.hstack((boxes, batch_y))
+        
+        if self.map_extras:
+            return batch_x, [boxes, batch_y]
+        else:
+            return batch_x, batch_y
 
     def next(self):
         with self.lock:
