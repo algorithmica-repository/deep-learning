@@ -57,7 +57,7 @@ def loadGloveWordEmbeddings(glove_file):
 def getEmbeddingWeightMatrix(embedding_vectors, word2idx):    
     embedding_matrix = np.zeros((len(word2idx)+1, word_embed_size))
     for word, i in word2idx.items():
-        embedding_vector = word2idx.get(word)
+        embedding_vector = embedding_vectors.get(word)
         if embedding_vector is not None:
             embedding_matrix[i] = embedding_vector
     return embedding_matrix
@@ -82,12 +82,11 @@ print(model.summary())
 optimizer = RMSprop(lr=0.01)
 model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=3, verbose=1, mode='auto')   
 save_weights = ModelCheckpoint('char_model.h5', monitor='val_loss', save_best_only=True)
 
 history = model.fit(X_train, y_train, validation_split=0.05, 
                     batch_size=batch_size, epochs=epochs, shuffle=True,
-                    callbacks=[save_weights, early_stopping])
+                    callbacks=[save_weights])
 utils.plot_loss_accuracy(history)
 
 word_index_reverse = {}

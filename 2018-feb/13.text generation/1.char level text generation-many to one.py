@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Embedding, Dropout
 from keras.layers import LSTM
 import numpy as np
 import utils
@@ -11,8 +11,8 @@ from keras.optimizers import RMSprop
 maxlen = 40
 step = 3
 batch_size = 128
-epochs = 20
-path = 'E:/text-prediction/nietzsche.txt'
+epochs = 1
+path = 'E:/sample.txt'
 
 text = open(path).read()
 print('corpus length:', len(text))
@@ -31,13 +31,16 @@ print(tokenizer.word_index)
 vocab_size = len(tokenizer.word_index)+1
 
 train_sequences = tokenizer.texts_to_sequences(sentences)
-X_train = np_utils.to_categorical(train_sequences, vocab_size)
+X_train = np.array(train_sequences)
 target = tokenizer.texts_to_sequences(next_chars)
 y_train = np_utils.to_categorical(target, vocab_size)
 
 model = Sequential()
-model.add(LSTM(128, input_shape=(maxlen, vocab_size), return_sequences=True))
-model.add(LSTM(128))
+model.add(Embedding(input_dim=vocab_size, output_dim=24, input_length=maxlen))
+model.add(LSTM(512, return_sequences=True))
+model.add(Dropout(0.2))
+model.add(LSTM(512, return_sequences=False))
+model.add(Dropout(0.2))
 model.add(Dense(128, activation='relu'))
 model.add(Dense(vocab_size, activation='softmax'))
 print(model.summary())
@@ -45,13 +48,11 @@ print(model.summary())
 optimizer = RMSprop(lr=0.01)
 model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=3, verbose=1, mode='auto')   
 save_weights = ModelCheckpoint('char_model.h5', monitor='val_loss', save_best_only=True)
 
-history = model.fit(X_train, y_train, validation_split=0.05, 
+model.fit(X_train, y_train, validation_split=0.05, 
                     batch_size=batch_size, epochs=epochs, shuffle=True,
-                    callbacks=[save_weights, early_stopping])
-utils.plot_loss_accuracy(history)
+                    callbacks=[save_weights])
 
 word_index_reverse = {}
 for k,v in tokenizer.word_index.items():
@@ -68,15 +69,13 @@ print('Seed sentence: "' + test_sentence + '"')
 
 generated = ''
 for i in range(200):
-    test_sequences = tokenizer.texts_to_sequences(test_sentence)
-    X_test = np_utils.to_categorical(test_sequences, vocab_size)
-    X_test = np.expand_dims(X_test, axis=0)
+    test_sequences = tokenizer.texts_to_sequences([test_sentence])
+    X_test = np.array(test_sequences)
 
     preds = model.predict(X_test, verbose=0)[0]
     next_char = word_index_reverse[np.argmax(preds)]
     
     generated += next_char
     test_sentence = test_sentence[1:] + next_char
-    print(next_char)
 
 print(generated)
