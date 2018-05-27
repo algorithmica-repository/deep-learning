@@ -70,9 +70,8 @@ def make_latent_samples(n_samples, sample_size):
 def make_labels(size):
     return np.ones([size, 1]), np.zeros([size, 1])
 
-def train_gan(generator, descriminator, gan, X_train_real, val_percent, batch_size, epochs, latent_sample_size):
-    # labels for the batch size and the val size
-    val_size = len(X_train_real) * val_percent
+def train_gan(generator, descriminator, gan, X_train_real, X_val_real, batch_size, epochs, latent_sample_size):
+    val_size = len(X_val_real)
     y_train_real, y_train_fake = make_labels(batch_size)
     y_val_real,  y_val_fake  = make_labels(val_size)
 
@@ -98,7 +97,6 @@ def train_gan(generator, descriminator, gan, X_train_real, val_percent, batch_si
             gan.train_on_batch(latent_samples, y_train_real)
     
         # evaluate at end of epoch
-        X_val_real = X_train_real[np.random.choice(len(X_train_real), val_size, replace=False)]
         latent_samples = make_latent_samples(val_size, latent_sample_size)
         X_val_fake = generator.predict_on_batch(latent_samples)
 
@@ -117,7 +115,7 @@ def plot_loss(losses):
    fig, ax = plt.subplots()
    plt.plot(losses.T[0], label='Discriminator')
    plt.plot(losses.T[1], label='Generator')
-   plt.title("Training Losses")
+   plt.title("Test Losses")
    plt.legend()
    plt.show() 
 
@@ -150,7 +148,7 @@ X_test = preprocess(X_test)
 #build generator, descriminator and gan
 generator, descriminator, gan = build_gan(latent_sample_size, descriminator_input_size, g_learning_rate, d_learning_rate)
 #train and validate gan
-losses = train_gan(generator, descriminator, gan, X_train, val_percent, batch_size, epochs, latent_sample_size)
+losses = train_gan(generator, descriminator, gan, X_train, X_test, batch_size, epochs, latent_sample_size)
 #plot losses
 plot_loss(losses)
 
