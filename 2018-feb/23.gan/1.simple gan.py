@@ -57,8 +57,8 @@ def build_gan(latent_sample_size, descriminator_input_size, g_learning_rate, d_l
     gan = Model(input, descriminator(generator(input)))
     print(gan.summary())
 
-    descriminator.compile(optimizer=Adam(lr=d_learning_rate), loss='binary_crossentropy')
-    gan.compile(optimizer=Adam(lr=g_learning_rate), loss='binary_crossentropy')
+    descriminator.compile(optimizer=Adam(lr=d_learning_rate), loss='binary_crossentropy', metrics=['accuracy'])
+    gan.compile(optimizer=Adam(lr=g_learning_rate), loss='binary_crossentropy', metrics=['accuracy'])
     
     return generator, descriminator, gan
 
@@ -70,11 +70,8 @@ def make_latent_samples(n_samples, sample_size):
 def make_labels(size):
     return np.ones([size, 1]), np.zeros([size, 1])
 
-def train_gan(generator, descriminator, gan, X_train_real, X_val_real, batch_size, epochs, latent_sample_size):
-    val_size = len(X_val_real)
+def train_gan(generator, descriminator, gan, X_train_real, batch_size, epochs, latent_sample_size):
     y_train_real, y_train_fake = make_labels(batch_size)
-    y_val_real,  y_val_fake  = make_labels(val_size)
-
     
     losses = []
     nbatches = len(X_train_real) // batch_size
@@ -88,34 +85,32 @@ def train_gan(generator, descriminator, gan, X_train_real, X_val_real, batch_siz
             X_batch_fake = generator.predict_on_batch(latent_samples)
         
             # train the discriminator to detect real and fake images
+            X = np.concatenate((X_batch_real, X_batch_fake))
+            y = np.concatenate((y_train_real, y_train_fake))
             descriminator.trainable = True
-            descriminator.train_on_batch(X_batch_real, y_train_real)
-            descriminator.train_on_batch(X_batch_fake, y_train_fake)
+            metrics = descriminator.train_on_batch(X, y)
+            d_loss = metrics[0]
+            d_acc = metrics[1]
+            log = "%d/%d: [discriminator loss: %f, acc: %f]" % (e, i, d_loss, d_acc)
 
-            # train the generator via GAN
+            # train gan with latent_samples and y_train_real of 1s
             descriminator.trainable = False
-            gan.train_on_batch(latent_samples, y_train_real)
-    
-        # evaluate at end of epoch
-        latent_samples = make_latent_samples(val_size, latent_sample_size)
-        X_val_fake = generator.predict_on_batch(latent_samples)
+            metrics = gan.train_on_batch(latent_samples, y_train_real)
+            
+            g_loss = metrics[0]
+            g_acc = metrics[1]
+            log = "%s [adversarial loss: %f, acc: %f]" % (log, g_loss, g_acc)
+            print(log)
+            losses.append((d_loss, g_loss, d_acc, g_acc))
 
-        d_loss  = descriminator.test_on_batch(X_val_real, y_val_real)
-        d_loss += descriminator.test_on_batch(X_val_fake, y_val_fake)
-        g_loss  = gan.test_on_batch(latent_samples, y_val_real) 
-    
-        losses.append((d_loss, g_loss))
-    
-        print("Epoch: {:>3}/{} Discriminator Loss: {:>6.4f} Generator Loss: {:>6.4f}".format(
-                e+1, epochs, d_loss, g_loss))
     return losses
 
 def plot_loss(losses):
    losses = np.array(losses)
    fig, ax = plt.subplots()
    plt.plot(losses.T[0], label='Discriminator')
-   plt.plot(losses.T[1], label='Generator')
-   plt.title("Test Losses")
+   plt.plot(losses.T[1], label='GAN')
+   plt.title("Train Losses")
    plt.legend()
    plt.show() 
 
@@ -133,25 +128,23 @@ def deprocess(x):
     x = x.reshape(28, 28)
     return x       
 
-val_percent = 0.2
-batch_size = 32
-epochs = 20
+batch_size = 64
+epochs = 10
 latent_sample_size = 100
 g_learning_rate = 0.0001 
 d_learning_rate = 0.001
 descriminator_input_size = 784
 
-(X_train, _), (X_test, _) = mnist.load_data()
+(X_train, _), (_, _) = mnist.load_data()
 X_train = preprocess(X_train)
-X_test = preprocess(X_test)
 
 #build generator, descriminator and gan
 generator, descriminator, gan = build_gan(latent_sample_size, descriminator_input_size, g_learning_rate, d_learning_rate)
 #train and validate gan
-losses = train_gan(generator, descriminator, gan, X_train, X_test, batch_size, epochs, latent_sample_size)
+losses = train_gan(generator, descriminator, gan, X_train, batch_size, epochs, latent_sample_size)
 #plot losses
 plot_loss(losses)
 
 #generate images using trained model
-test_generator(generator, 16, latent_sample_size) 
+test_generator(generator, 25, latent_sample_size) 
  
