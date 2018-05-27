@@ -1,4 +1,4 @@
-from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, Conv2DTranspose
+from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Conv2DTranspose, BatchNormalization, Activation
 from keras.models import Model
 from keras.datasets import mnist 
 import numpy as np
@@ -38,7 +38,7 @@ def plot(n, X, Decoded_X):
 X_train = X_train.astype('float32') / 255.
 X_test = X_test.astype('float32') / 255.
 
-noise_factor = 0.25
+noise_factor = 0.5
 X_train_noisy = X_train + noise_factor * np.random.normal(size=X_train.shape) 
 X_test_noisy = X_test + noise_factor * np.random.normal(size=X_test.shape) 
 
@@ -52,21 +52,28 @@ X_test_noisy = X_test_noisy[..., np.newaxis]
 plot_noisy(10, X_train_noisy)
 
 input_size = 784
-epochs = 30
+epochs = 2
 batch_size = 128
 
 
 input_img = Input(shape=(28, 28, 1)) 
-x = Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
+x = Conv2D(32, (3, 3), padding='same')(input_img)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
 x = MaxPooling2D((2, 2), padding='same')(x)
-x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+x = Conv2D(64, (3, 3), padding='same')(x)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
 encoded = MaxPooling2D((2, 2), padding='same')(x)
 
 # at this point the representation is (7, 7, 32)
-
-x = Conv2DTranspose(64, (3, 3), activation='relu', padding='same')(encoded)
+x = Conv2DTranspose(64, (3, 3), padding='same')(encoded)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
 x = UpSampling2D((2, 2))(x)
-x = Conv2DTranspose(32, (3, 3), activation='relu', padding='same')(x)
+x = Conv2DTranspose(32, (3, 3), padding='same')(x)
+x = BatchNormalization()(x)
+x = Activation('relu')(x)
 x = UpSampling2D((2, 2))(x)
 decoded = Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same')(x)
 

@@ -29,16 +29,16 @@ X_test = X_test.reshape((X_test.shape[0], -1))
 
 input_size = 784
 encoding_size = 64
-epochs = 50
+epochs = 10
 batch_size = 256
  
 input_img = Input(shape=(input_size,))
-encoded = Dense(encoding_size, activation='relu')(input_img)
-decoded = Dense(input_size, activation='relu')(encoded)
+encoded = Dense(encoding_size)(input_img)
+decoded = Dense(input_size, activation='sigmoid')(encoded)
 autoencoder = Model(input_img, decoded)
 print(autoencoder.summary())
 
-autoencoder.compile(optimizer='adam', loss='mean_squared_error')
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
 autoencoder.fit(X_train, X_train, epochs=epochs, batch_size=batch_size, shuffle=True, validation_split=0.2)
 
 decoded_imgs = autoencoder.predict(X_test)
