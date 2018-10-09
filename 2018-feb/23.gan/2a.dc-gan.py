@@ -1,4 +1,4 @@
-from keras.layers import Input, Dense, LeakyReLU, Activation
+from keras.layers import Input, Dense, LeakyReLU, Activation, Reshape, Conv2D, Conv2DTranspose, Activation, BatchNormalization, Flatten
 from keras.models import Model
 from keras.datasets import mnist 
 from keras.optimizers import Adam
@@ -7,7 +7,6 @@ import numpy as np
 import math
 import keras
 
-print(keras.__version__)
 def plot_images(images):
     plt.figure(figsize=(20, 8))
     num_images = images.shape[0]
@@ -21,26 +20,43 @@ def plot_images(images):
     plt.show()
 
 def build_generator(input):
-   x =  Dense(128)(input)
-   x = LeakyReLU(alpha=0.01)(x)
-   x = Dense(784)(x)
-   x = Activation('tanh')(x)
-   generator = Model(input, x)
-   return generator
+    x = Dense(784)(input)
+    x = Reshape(target_shape=(7, 7, 16))(x)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.01)(x)
+        
+    x = Conv2DTranspose(32, (5,5), strides=2, padding='same')(x) 
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.01)(x)
+        
+    x = Conv2DTranspose(1, (5,5), strides=2, padding='same')(x)
+    x = Activation('tanh')(x)
+    generator = Model(input, x)
+    return generator
 
 def test_generator(generator, n_samples, sample_size):
     latent_samples = make_latent_samples(n_samples, sample_size)
     images = generator.predict(latent_samples)
     plot_images(images)
 
-def build_descriminator(descriminator_input_size):
-   input = Input(shape=(descriminator_input_size,))     
-   x =  Dense(128)(input)
-   x = LeakyReLU(alpha=0.01)(x)
-   x = Dense(1)(x)
-   x = Activation('sigmoid')(x)
-   descriminator = Model(input, x)
-   return descriminator 
+def build_descriminator():
+    input = Input(shape=(28, 28, 1)) 
+    x = Conv2D(32, (5, 5), strides=2, padding='same')(input)
+    x = LeakyReLU(alpha=0.01)(x)
+    
+    x = Conv2D(16, (5, 5), strides=2, padding='same')(x)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.01)(x)
+    
+    x = Flatten()(x)
+    x = Dense(128)(x)
+    x = BatchNormalization()(x)
+    x = LeakyReLU(alpha=0.01)(x)
+    
+    x = Dense(1)(x)
+    x = Activation('sigmoid')(x)
+    descriminator = Model(input, x)
+    return descriminator  
 
 def build_gan(latent_sample_size, descriminator_input_size, g_learning_rate, d_learning_rate):
     input = Input(shape=(latent_sample_size,))     
@@ -50,7 +66,7 @@ def build_gan(latent_sample_size, descriminator_input_size, g_learning_rate, d_l
     print(generator.summary())
 
     #build descriminator model
-    descriminator =  build_descriminator(descriminator_input_size)
+    descriminator =  build_descriminator()
     print(descriminator.summary())
 
     #build adversarial model = generator + discriminator
@@ -115,7 +131,7 @@ def plot_loss(losses):
    plt.show() 
 
 def preprocess(x):    
-    x = x.reshape(-1, 784) # 784=28*28
+    x = x.reshape(-1, 28, 28, 1)
     x = np.float64(x)
     x = (x / 255 - 0.5) * 2
     x = np.clip(x, -1, 1)
@@ -129,11 +145,10 @@ def deprocess(x):
     return x       
 
 batch_size = 64
-epochs = 10
+epochs = 2
 latent_sample_size = 100
 g_learning_rate = 0.0001 
 d_learning_rate = 0.001
-descriminator_input_size = 784
 
 (X_train, _), (_, _) = mnist.load_data()
 X_train = preprocess(X_train)
