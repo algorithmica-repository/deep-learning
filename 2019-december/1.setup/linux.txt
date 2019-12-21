@@ -1,0 +1,17 @@
+step1: install python(anaconda distribution)
+  	bash anaconda-xxx.sh
+step2: create a new environment and install tensorflow, keras and other required libraries
+	conda create -n keras-tf python=3.6
+	source activate keras-tf
+	pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.3.0-cp27-none-linux_x86_64.whl
+	pip install keras
+	pip install matplotlib
+	pip install pandas
+	pip install sklearn
+	pip install seaborn
+	pip install graphviz
+	pip install pydot
+	conda install spyder
+
+Step4: test the installation
+   start spyder and perfrom import keras
