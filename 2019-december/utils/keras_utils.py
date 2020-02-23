@@ -7,6 +7,9 @@ from collections import OrderedDict
 import keras.backend as K
 from keras.models import Model
 import os
+import pandas as pd
+import seaborn as sns
+from sklearn import manifold, decomposition
 
 def n_(node, output_format_):
     node_name = str(node.name)
@@ -231,7 +234,8 @@ def display_activations(activations, cmap=None, save=False, directory='.', data_
         plt.close(fig)
 
 def plot_accuracy(history, viz=True):
-    acc = history.history['accuracy']
+    plt.figure()
+    loss = history.history['accuracy']
     val_acc = history.history['val_accuracy']
     print("train accuracy:", acc[-1])
     print("validation accuracy", val_acc[-1])
@@ -245,7 +249,6 @@ def plot_accuracy(history, viz=True):
         plt.show()
 
 def plot_loss(history):
-    plot_accuracy(history, False)
     plt.figure()
     loss = history.history['loss']
     val_loss = history.history['val_loss']
@@ -255,3 +258,34 @@ def plot_loss(history):
     plt.title('Training and validation loss')
     plt.legend()
     plt.show()
+
+def viz_vectors(vectors, labels, annot=False):
+    df = pd.DataFrame(vectors)
+    df.index = labels
+    g = sns.heatmap(df, annot = annot, vmin=-1, vmax=1, center= 0, cmap= 'coolwarm')
+    g.set_yticklabels(g.get_yticklabels(), rotation = 0, fontsize = 8)
+
+def viz_vectors_corr(vectors, labels, annot=False):
+    cor = np.corrcoef(vectors)
+    df = pd.DataFrame(cor, columns=labels)
+    df.index = labels
+    upper = np.triu(df)
+    g = sns.heatmap(df, annot = annot, vmin=-1, vmax=1, center= 0, cmap= 'coolwarm', mask=upper)
+    g.set_yticklabels(g.get_yticklabels(), rotation = 0, fontsize = 8)
+    g.set_xticklabels(g.get_xticklabels(), rotation = 90, fontsize = 8)
+    
+def viz_vectors_lower_dim(vectors, labels):
+    lpca = decomposition.PCA(0.95)
+    vectors_pca = lpca.fit_transform(vectors)
+    tsne = manifold.TSNE(perplexity=30.0, n_components=2, n_iter=5000)
+    low_dim_emb = tsne.fit_transform(vectors_pca)    
+    plt.figure(figsize=(18, 18))  
+    for i, label in enumerate(labels):
+        x, y = low_dim_emb[i, :]
+        plt.scatter(x, y)
+        plt.annotate(label,
+                 xy=(x, y),
+                 xytext=(5, 2),
+                 textcoords='offset points',
+                 ha='right',
+                 va='bottom')
